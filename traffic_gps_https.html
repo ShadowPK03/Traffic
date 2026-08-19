@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ESP32 Traffic GPS</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0d0f12;color:#fff;padding:18px} .wrap{max-width:480px;margin:auto}.card{background:#171a1f;border:1px solid #2a3038;border-radius:18px;padding:20px;box-shadow:0 8px 30px #0008}.title{font-size:24px;font-weight:800;text-align:center;margin:4px 0 18px}.row{display:flex;gap:8px}.row>*{flex:1}label{display:block;font-size:13px;color:#aeb7c2;margin:12px 0 6px}input{width:100%;padding:14px;border-radius:12px;border:1px solid #303743;background:#0e1115;color:#fff;font-size:16px}button{width:100%;margin-top:14px;padding:15px;border:0;border-radius:12px;background:#19d36b;color:#04130a;font-weight:800;font-size:17px}button.stop{background:#ff5a67;color:#220307}.status{margin-top:15px;padding:12px;border-radius:12px;background:#0e1115;text-align:center;font-weight:700}.gps{margin-top:12px;font-family:monospace;font-size:16px;text-align:center;line-height:1.5}.hint{margin-top:16px;font-size:13px;line-height:1.5;color:#aeb7c2}.small{font-size:12px;color:#7f8a98;margin-top:10px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="card">
+<div class="title">ESP32 TRAFFIC GPS</div>
+<label>ESP32 IP Address</label>
+<input id="esp" placeholder="192.168.1.123" inputmode="decimal">
+<div class="row">
+<div><label>Update</label><input id="sec" type="number" min="5" max="60" value="10"></div>
+<div><label>Accuracy</label><input value="HIGH" disabled></div>
+</div>
+<button id="start" onclick="startGPS()">START GPS</button>
+<button class="stop" onclick="stopGPS()">STOP</button>
+<div id="status" class="status">พร้อมเริ่มต้น</div>
+<div id="gps" class="gps">GPS: --<br>Accuracy: --</div>
+<div class="hint">หน้านี้ต้องเปิดผ่าน <b>HTTPS</b> หรือใช้หน้า GitHub Pages เพื่อให้ Browser อนุญาต GPS จากมือถือ จากนั้น GPS จะถูกส่งไป ESP32 ด้วยการนำทางไปยัง endpoint ชั่วครู่แล้ว redirect กลับมายังหน้านี้</div>
+<div class="small">ไม่ต้องใส่ TomTom API key ในมือถือ — ให้ใส่ใน ESP32 เท่านั้น</div>
+</div></div>
+<script>
+const q=new URLSearchParams(location.search);
+const esp=document.getElementById('esp');
+const sec=document.getElementById('sec');
+const statusEl=document.getElementById('status');
+const gpsEl=document.getElementById('gps');
+let timer=null;
+let busy=false;
+
+const saved=q.get('esp')||localStorage.getItem('esp32_ip')||'';
+esp.value=saved;
+
+function setStatus(s){statusEl.textContent=s}
+function espUrl(){
+  let ip=esp.value.trim().replace(/^https?:\/\//,'').replace(/\/$/,'');
+  if(!ip){setStatus('กรุณาใส่ IP ของ ESP32');return null}
+  localStorage.setItem('esp32_ip',ip);
+  return 'http://'+ip;
+}
+function backUrl(){return location.origin+location.pathname+'?esp='+encodeURIComponent(esp.value.trim())+'#gps-ok'}
+function sendToESP(p){
+  const lat=p.coords.latitude, lon=p.coords.longitude;
+  const acc=p.coords.accuracy;
+  gpsEl.innerHTML='GPS: '+lat.toFixed(6)+', '+lon.toFixed(6)+'<br>Accuracy: '+Math.round(acc)+' m';
+  const base=espUrl(); if(!base)return;
+  busy=true;
+  setStatus('กำลังส่ง GPS ไป ESP32...');
+  const back=encodeURIComponent(backUrl());
+  // top-level navigation ไม่ใช้ fetch() จึงหลีกเลี่ยง mixed-content/CORS ของ browser
+  location.replace(base+'/api/gps?lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon)+'&back='+back);
+}
+function err(e){
+  busy=false;
+  if(e.code===1)setStatus('GPS: ไม่อนุญาตสิทธิ์ Location');
+  else if(e.code===2)setStatus('GPS: หาตำแหน่งไม่พบ');
+  else if(e.code===3)setStatus('GPS: หมดเวลา');
+  else setStatus('GPS ERROR');
+}
+function getOnce(){
+  if(!navigator.geolocation){setStatus('มือถือไม่รองรับ GPS');return}
+  navigator.geolocation.getCurrentPosition(sendToESP,err,{enableHighAccuracy:true,timeout:15000,maximumAge:2000});
+}
+function startGPS(){
+  if(!espUrl())return;
+  localStorage.setItem('gps_started','1');
+  setStatus('กำลังขอสิทธิ์ GPS...');
+  getOnce();
+  const n=Math.max(5,Math.min(60,parseInt(sec.value)||10))*1000;
+  if(timer)clearInterval(timer);
+  timer=setInterval(()=>{if(!busy)getOnce()},n);
+}
+function stopGPS(){
+  if(timer){clearInterval(timer);timer=null}
+  localStorage.removeItem('gps_started');
+  setStatus('GPS STOPPED');
+}
+
+// หลัง ESP32 redirect กลับมาหน้านี้ ให้เริ่มรอบใหม่อัตโนมัติ
+if(location.hash==='#gps-ok' || q.get('auto')==='1' || localStorage.getItem('gps_started')==='1'){
+  history.replaceState(null,'',location.pathname+'?esp='+encodeURIComponent(esp.value));
+  setTimeout(startGPS,500);
+}
+</script>
+</body>
+</html>
