@@ -54,7 +54,7 @@ function sendToESP(p){
   setStatus('กำลังส่ง GPS ไป ESP32...');
   const back=encodeURIComponent(backUrl());
   // top-level navigation ไม่ใช้ fetch() จึงหลีกเลี่ยง mixed-content/CORS ของ browser
-  location.replace(base+'/api/gps?lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon)+'&back='+back);
+  location.replace(base+'/api/gps?lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon)+'&back='+encodeURIComponent(back));
 }
 function err(e){
   busy=false;
