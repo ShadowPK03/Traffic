@@ -51,9 +51,15 @@ function sendToESP(p){
   const base=espUrl(); if(!base)return;
   busy=true;
   setStatus('กำลังส่ง GPS ไป ESP32...');
-  const back=encodeURIComponent(backUrl());
-  // top-level navigation ไม่ใช้ fetch() จึงหลีกเลี่ยง mixed-content/CORS ของ browser
-  location.replace(base+'/api/gps?lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon)+'&back='+back);
+
+  // ส่งข้อมูลแบบ GET ผ่านรูปภาพ/เบื้องหลัง ไม่เปลี่ยนหน้าเว็บ
+  // ESP32 ต้องเปิด GET /api/gps?lat=...&lon=...
+  const img=new Image();
+  img.onload=img.onerror=()=>{
+    busy=false;
+    setStatus('GPS CONNECTED');
+  };
+  img.src=base+'/api/gps?lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon)+'&_t='+Date.now();
 }
 function err(e){
   busy=false;
@@ -81,9 +87,8 @@ function stopGPS(){
   setStatus('GPS STOPPED');
 }
 
-// หลัง ESP32 redirect กลับมาหน้านี้ ให้เริ่มรอบใหม่อัตโนมัติ
-if(location.hash==='#gps-ok' || q.get('auto')==='1' || localStorage.getItem('gps_started')==='1'){
-  history.replaceState(null,'',location.pathname+'?esp='+encodeURIComponent(esp.value));
+// เริ่มอัตโนมัติเมื่อ URL มี ?esp=... (แต่หน้าเว็บจะไม่ redirect)
+if(q.get('esp') && localStorage.getItem('gps_started')==='1'){
   setTimeout(startGPS,500);
 }
 </script>
