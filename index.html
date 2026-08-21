@@ -10,8 +10,8 @@
 </head>
 <body>
 <div class="wrap"><div class="card">
-<div class="title">TRAFFIC GPS</div>
-<label>IP Address</label>
+<div class="title">ESP32 TRAFFIC GPS</div>
+<label>ESP32 IP Address</label>
 <input id="esp" placeholder="192.168.1.123" inputmode="decimal">
 <div class="row">
 <div><label>Update</label><input id="sec" type="number" min="5" max="60" value="10"></div>
@@ -21,8 +21,7 @@
 <button class="stop" onclick="stopGPS()">STOP</button>
 <div id="status" class="status">พร้อมเริ่มต้น</div>
 <div id="gps" class="gps">GPS: --<br>Accuracy: --</div>
-<div class="hint">   <b>FB  :</b> POOMIN KUNMAI </div>
-<div class="hint">   <b>IG  :</b> ppxxkm._ </div>
+<div class="hint">หน้านี้ต้องเปิดผ่าน <b>HTTPS</b> หรือใช้หน้า GitHub Pages เพื่อให้ Browser อนุญาต GPS จากมือถือ จากนั้น GPS จะถูกส่งไป ESP32 ด้วยการนำทางไปยัง endpoint ชั่วครู่แล้ว redirect กลับมายังหน้านี้</div>
 <div class="small">ไม่ต้องใส่ TomTom API key ในมือถือ — ให้ใส่ใน ESP32 เท่านั้น</div>
 </div></div>
 <script>
