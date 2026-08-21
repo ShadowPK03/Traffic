@@ -21,7 +21,7 @@
 <button class="stop" onclick="stopGPS()">STOP</button>
 <div id="status" class="status">พร้อมเริ่มต้น</div>
 <div id="gps" class="gps">GPS: --<br>Accuracy: --</div>
-<div class="hint">หน้านี้ต้องเปิดผ่าน <b>HTTPS</b> หรือใช้หน้า GitHub Pages เพื่อให้ Browser อนุญาต GPS จากมือถือ จากนั้น GPS จะถูกส่งไป ESP32 ด้วยการนำทางไปยัง endpoint ชั่วครู่แล้ว redirect กลับมายังหน้านี้</div>
+<div class="hint">หน้านี้ต้องเปิดผ่าน <b>HTTPS</b> หรือใช้หน้า GitHub Pages เพื่อให้ Browser อนุญาต GPS จากมือถือ จากนั้น GPS จะถูกส่งไป ESP32 เบื้องหลังโดยไม่เปลี่ยนหน้าเว็บ</div>
 <div class="small">ไม่ต้องใส่ TomTom API key ในมือถือ — ให้ใส่ใน ESP32 เท่านั้น</div>
 </div></div>
 <script>
@@ -43,24 +43,41 @@ function espUrl(){
   localStorage.setItem('esp32_ip',ip);
   return 'http://'+ip;
 }
-function backUrl(){return location.origin+location.pathname+'?esp='+encodeURIComponent(esp.value.trim())+'#gps-ok'}
 function sendToESP(p){
-  const lat=p.coords.latitude, lon=p.coords.longitude;
+  const lat=p.coords.latitude;
+  const lon=p.coords.longitude;
   const acc=p.coords.accuracy;
-  gpsEl.innerHTML='GPS: '+lat.toFixed(6)+', '+lon.toFixed(6)+'<br>Accuracy: '+Math.round(acc)+' m';
-  const base=espUrl(); if(!base)return;
+
+  gpsEl.innerHTML='GPS: '+lat.toFixed(6)+', '+lon.toFixed(6)+
+                  '<br>Accuracy: '+Math.round(acc)+' m';
+
+  const base=espUrl();
+  if(!base)return;
+
   busy=true;
   setStatus('กำลังส่ง GPS ไป ESP32...');
 
-  // ส่งข้อมูลแบบ GET ผ่านรูปภาพ/เบื้องหลัง ไม่เปลี่ยนหน้าเว็บ
-  // ESP32 ต้องเปิด GET /api/gps?lat=...&lon=...
+  // ใช้ GET ผ่าน <img> เพื่อส่ง request โดยไม่เปลี่ยนหน้าเว็บ
+  // จึงไม่เด้งไปหน้า "OK" ของ /api/gps
+  const url=base+'/api/gps?lat='+encodeURIComponent(lat)+
+            '&lon='+encodeURIComponent(lon)+
+            '&_t='+Date.now();
+
   const img=new Image();
-  img.onload=img.onerror=()=>{
+  img.onload=img.onerror=function(){
+    // สำหรับการส่งแบบ <img> เราอ่าน response ของ ESP32 ไม่ได้
+    // แต่ request ถูกยิงออกไปแล้วทั้งกรณีโหลดสำเร็จ/ตอบกลับแบบไม่ใช่รูป
     busy=false;
-    setStatus('GPS CONNECTED');
+    setStatus('GPS SENT → ESP32');
   };
-  img.src=base+'/api/gps?lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon)+'&_t='+Date.now();
+  img.src=url;
+
+  // ป้องกัน busy ค้าง หาก browser ไม่เรียก callback
+  setTimeout(function(){
+    busy=false;
+  },3000);
 }
+
 function err(e){
   busy=false;
   if(e.code===1)setStatus('GPS: ไม่อนุญาตสิทธิ์ Location');
@@ -88,7 +105,7 @@ function stopGPS(){
 }
 
 // เริ่มอัตโนมัติเมื่อ URL มี ?esp=... (แต่หน้าเว็บจะไม่ redirect)
-if(q.get('esp') && localStorage.getItem('gps_started')==='1'){
+if(q.get('esp')){
   setTimeout(startGPS,500);
 }
 </script>
